@@ -13,7 +13,7 @@ const $messages = document.querySelector("#messages");
 //Templates
 const messageTemplate = document.querySelector("#messageTemplate").innerHTML;
 const locationTemplate = document.querySelector("#locationTemplate").innerHTML;
-
+const sidebarTemplate = document.querySelector("#sidebarTemplate").innerHTML;
 
 //Options
 const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true })
@@ -22,9 +22,42 @@ const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true }
   So we already have socket in the server side when the new connection comes in, oin teh client side when we initialize the connction we now
   get access to socket that will allow us to send events and perceive events for both; the server and the client.
   */
+
+  const autoscroll = () => {
+    // New message element
+    const $newMessage = $messages.lastElementChild;
+// This line will grab the last element as a child, which will be the new message since new message are added to the bottom
+    // We need to know how tall that message is, its standard content including its margin
+    const newMessageStyle = getComputedStyle($newMessage);
+    const newMessageMargin = parseInt(newMessageStyle.marginBottom);
+    // parseInt takes in a string and it Parses to a number (converts is to an integer)
+    // Height of the total new message
+    const newMessageHeight = $newMessage.offsetHeight + newMessageMargin;
+     
+    /* To get the computed style for a given element we use getComputedStyle which is available through the browser we pass the element, 
+    so that we can figure out what that spacng margin bottom is */
+    
+    // Visible Height
+    const visibleHeight = $messages.offsetHeight;
+    //This is the height of the scrollbar itself
+
+    // Height of Messages Container
+    //Total Height we are able to get through
+    const containerHeight = $messages.scrollHeight;
+
+    // How far have I scrolled?
+    const scrollOffset = $messages.scrollTop + visibleHeight;
+// this will give you scrollBottom since there is no scrollBottom
+    if(containerHeight - newMessageHeight <= scrollOffset) {
+      $messages.scrollTop = $messages.scrollHeight
+    }; 
+  };
+  /* To do this we will need the height of the new message element, because if the height is lower than the ante-ultimo message then that means that we will 
+  autoscroll the message, if its not then we will not autoscroll since that means that the user is looking for a specific data that was mentioned in the past*/
   socket.on("message", (message) => {
     console.log(message);
     const html = Mustache.render(messageTemplate, {
+      username: message.username,
       message: message.text,
       createdAt: moment(message.createdAt).format("llll")
     /* This will get a timestamp for the messages that the user types, letting other people know when it was sent. We get this done by using the
@@ -36,19 +69,29 @@ const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true }
     $messages.insertAdjacentHTML("beforeend", html);
     /*beforeend adds messages to the end of the div and afterbegin will add messages to the top inside the div 
     Two step process, the first step is to compile our template with the data that we want to render inside of it. */
+    autoscroll();
   });
 
   socket.on("locationMessage", (message) => {
     console.log(message);
     const html = Mustache.render(locationTemplate, {
+      username: message.username,
       url: message.url,
       createdAt: moment(message.createdAt).format("llll")
     });
     $messages.insertAdjacentHTML("beforeend", html);
+    autoscroll();
   });
 /* This line of code will listen to the event of sending the location to the other users and having it display on the console, also it proves that the other event handler
 is running when we are getting a location that has been shared with us, we can run a seperate code to run, we can render a seperate template including a hyperlink   
 When we listen for form submissions we get access to the e event argument. */
+socket.on("roomData",({room, users}) => {
+  const html = Mustache.render(sidebarTemplate, {
+    room,
+    users
+  })
+  document.querySelector("#sidebar").innerHTML = html;
+});
   $form.addEventListener("submit", (e) => {
     e.preventDefault();
     $button.setAttribute("disabled", "disabled");
@@ -96,7 +139,8 @@ When we listen for form submissions we get access to the e event argument. */
       location.href = "/"
     }
   })
-
+/* This will let the client know what exactly is going on, if there is an error the client will know what to display to let the user know
+that there is an error */
 /* we will be learning the proper way to use socket.io to
 transfer data between the server to the client in real time */
 

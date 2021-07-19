@@ -2,7 +2,6 @@ const path = require("path");
 const http = require("http");
 const express = require("express");
 const socketio = require("socket.io");
-const Filter = require("bad-words");
 const {generateMessage, generateLocationMessage} = require("./utils/messages");
 const {addUser, removeUser, getUser, getUsersInRoom} = require("./utils/user");
 
@@ -20,7 +19,6 @@ const publicDirectoryPath = path.join(__dirname, "../public")
 app.use(express.static(publicDirectoryPath));
 
 
-
 //Prints a new message when a new user connects
 io.on("connection", (socket) => {
     console.log("New WebSocket connection");
@@ -32,34 +30,41 @@ real time communication. We did this by using socketIO
     we would use socket.on */
     socket.on("join",({username, room}, callback)=> {
         const {error, user} = addUser({ id: socket.id, room, username })
-
+// socket.id is the unique identifier for that particular connection 
         if (error) {
-            return callback(callback)
-        }
+            return callback(callback);
+        };
 
         socket.join(user.room)
-        // We are going to use addUser here to keep track of them. Running only when the user has been added
+        /* We are going to use addUser here to keep track of them. Running only when the user has been added. user.room is the output of 
+        the function addUser */
+        //***Look into REST operador (SPREAD operator)
 
-        socket.emit("message", generateMessage("Welcome!"));
-        socket.broadcast.to(user.room).emit("message", generateMessage(`${user.username} has joined!`));
+        socket.emit("message", generateMessage("Admin", "Welcome!"));
+        socket.broadcast.to(user.room).emit("message", generateMessage("Admin", `${user.username} has joined!`));
+        io.to(user.room).emit("roomData", {
+            room: user.room,
+            users: getUsersInRoom(user.room)
+        })
         /* This will let the others users know that there is this new user that came into the chat room */
         
         callback()
-    })
+        //This means without any errors 
+    });
     socket.on("sendMessage", (message, callback) => {
-        const filter = new Filter();
-        
-        if (filter.isProfane(message))  {
-            return callback("Profanity is not allowed");
-        }
-
-        io.to("Argentina").emit("message", generateMessage(message));
+        const user = getUser(socket.id)
+   
+/* It gives me an error because im using user.room outside of the function that I have declared it in. I would have to find a way to be
+be able to declare it as a global variable so that I do not have that problem */
+        io.to(user.room).emit("message", generateMessage(user.username, message));
         callback();
     });
+// Now that we are tracking users its possible to send messages to just those rooms with just these few lines of code
 /* This line gives the users a chance to share their location with a hyperlink that other users can click to see where in the world
 these users are located */
     socket.on("sendLocation", (position, callback) => {
-        io.emit("locationMessage", generateLocationMessage("https://google.com/maps?=${position.latitude},${position.longitude}"));
+        const user = getUser(socket.id);
+        io.to(user.room).emit("locationMessage", generateLocationMessage(user.username, "https://google.com/maps?=${position.latitude},${position.longitude}"));
         callback();
     });
 
@@ -67,7 +72,13 @@ these users are located */
         const user = removeUser(socket.id)
 
         if (user) {
-            io.to(user.room).emit("message", generateMessage(`${user.username} has left`))
+            io.to(user.room).emit("message", generateMessage("Admin", `${user.username} has left`))
+            io.to(user.room).emit("roomData", {
+                room: user.room,
+                users: getUsersInRoom(user.room)
+            });
+            // This keeps the server updated with the users in the room, and populates the side bar of the current users in the specific room  
+            // the .to() method sends this message to users to only in this room.
         }
         
     });
@@ -142,3 +153,8 @@ io.to.emit, socket.broacast.to.emit - sending an event to everyone except that p
 /* The whole point of tracking users was to make sure we had access to things like username and room name throughout our other event listeners 
 as well. When we emit things we would like to have it emitted to the correct chat rooms we are also going to include users usernames as well 
 as their messages so we can render those to the screen as well */
+
+/* Goal is that the object being sent back to the client contains all of the info it needs, now in messages.js for genererateMessageLocation, this takes in
+the URL and sends back the object of the URL and created app, we are also going to have it send in the username and have it send back as well */
+
+/* Auto scrolling means having the browser automatically scroll to the newest messages when it does not have room on the page to display all of the messages */

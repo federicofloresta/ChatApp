@@ -21,7 +21,7 @@ const addUser = ({ id, username, room }) => {
     // Validate username
     if (duplicateUser) {
         return {
-            error: "Username is in use!"
+            error: "That username is in use!"
         }
     };
 
@@ -45,6 +45,8 @@ const getUser = (id) => {
     return users.find((user)=> user.id === id) 
 
 }
+/* Accepts the ID of the user and returns the user object if there is a match, otherwise we will return undefined. Same as user.id,
+where the user is the object and we are using the id method to pinpoint the ID of that specific user. */  
 
 //getUsersInRoom
 const getUsersInRoom = (room) => {
@@ -52,9 +54,15 @@ const getUsersInRoom = (room) => {
     
 }
 
+/* This will accept the room name and will return an array of users that are in that specific room or an aempty array if no users are in 
+that room, user.room means that we are looking for users in that specific room object is user and the method that we are using on that object
+is room */ 
+
 module.exports = {
     getUser,
     getUsersInRoom,
     addUser,
     removeUser
-}
+};
+
+// This file manages the users who are joining 
